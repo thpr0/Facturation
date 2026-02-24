@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculateur de Montant</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --bg: #f8fafc;
+            --text: #1e293b;
+            --accent: #059669;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            margin: 0;
+        }
+
+        .card {
+            background: white;
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 450px;
+        }
+
+        h2 { margin-top: 0; font-size: 1.25rem; text-align: center; color: var(--primary); }
+
+        .input-group { margin-bottom: 16px; }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #64748b;
+        }
+
+        input {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            box-sizing: border-box;
+            transition: all 0.2s;
+        }
+
+        input:focus { outline: none; border-color: var(--primary); background: #fff; }
+
+        input[readonly] { background-color: #f8fafc; color: #475569; border-color: #f1f5f9; }
+
+        .highlight-box {
+            background-color: #f0fdf4;
+            border: 2px solid var(--accent) !important;
+            color: var(--accent) !important;
+            font-weight: bold;
+        }
+
+        #lettres-container {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f1f5f9;
+            border-radius: 8px;
+            font-style: italic;
+            font-size: 0.95rem;
+            line-height: 1.4;
+            color: #334155;
+            border-left: 4px solid var(--primary);
+        }
+
+        .currency-label { font-weight: bold; color: var(--text); }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Calcul de Facturation</h2>
+    
+    <div class="input-group">
+        <label>Montant TTC</label>
+        <input type="number" id="ttc" placeholder="0.00" step="0.01">
+    </div>
+
+    <div class="input-group">
+        <label>Montant HT (20%)</label>
+        <input type="text" id="ht" readonly>
+    </div>
+
+    <div class="input-group">
+        <label>Montant RAS (75% du HT)</label>
+        <input type="text" id="ras" readonly>
+    </div>
+
+    <div class="input-group">
+        <label>Montant Ordonnance (TTC - RAS)</label>
+        <input type="text" id="ordonance" class="highlight-box" readonly>
+    </div>
+
+    <div id="lettres-container">
+        <span class="currency-label">Arrêté à la somme de :</span><br>
+        <span id="ordonance-lettres">Veuillez saisir un montant...</span>
+    </div>
+</div>
+
+<script>
+    // Simple French Number to Words Logic
+    function numberToFrench(n) {
+        if (n === 0) return "zéro";
+        const units = ["", "un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf"];
+        const teens = ["dix", "onze", "douze", "treize", "quatorze", "quinze", "seize", "dix-sept", "dix-huit", "dix-neuf"];
+        const tens = ["", "dix", "vingt", "trente", "quarante", "cinquante", "soixante", "soixante-dix", "quatre-vingt", "quatre-vingt-dix"];
+
+        function convert(num) {
+            if (num < 10) return units[num];
+            if (num < 20) return teens[num - 10];
+            if (num < 100) {
+                let t = Math.floor(num / 10);
+                let u = num % 10;
+                if (t === 7 || t === 9) return tens[t-1] + "-" + convert(u + 10);
+                return tens[t] + (u === 1 ? "-et-un" : (u > 0 ? "-" + units[u] : ""));
+            }
+            if (num < 1000) {
+                let h = Math.floor(num / 100);
+                let r = num % 100;
+                let s = (h > 1 ? units[h] + " cent" : "cent") + (h > 1 && r === 0 ? "s" : "");
+                return s + (r > 0 ? " " + convert(r) : "");
+            }
+            if (num < 1000000) {
+                let m = Math.floor(num / 1000);
+                let r = num % 1000;
+                let s = (m === 1 ? "mille" : convert(m) + " mille");
+                return s + (r > 0 ? " " + convert(r) : "");
+            }
+            return num.toString(); // Fallback for very large numbers
+        }
+
+        let parts = n.toString().split(".");
+        let integerPart = parseInt(parts[0]);
+        let decimalPart = parts[1] ? parseInt(parts[1].padEnd(2, '0').substring(0, 2)) : 0;
+
+        let result = convert(integerPart) + " Dirhams";
+        if (decimalPart > 0) {
+            result += " et " + convert(decimalPart) + " Centimes";
+        }
+        return result.charAt(0).toUpperCase() + result.slice(1);
+    }
+
+    const ttcInput = document.getElementById('ttc');
+    const htInput = document.getElementById('ht');
+    const rasInput = document.getElementById('ras');
+    const ordonanceInput = document.getElementById('ordonance');
+    const lettresDisplay = document.getElementById('ordonance-lettres');
+
+    ttcInput.addEventListener('input', () => {
+        const ttc = parseFloat(ttcInput.value) || 0;
+
+        const ht = ttc * 0.20;
+        const ras = ht * 0.75;
+        const ordonance = ttc - ras;
+
+        htInput.value = ht.toFixed(2);
+        rasInput.value = ras.toFixed(2);
+        ordonanceInput.value = ordonance.toFixed(2);
+
+        if (ttc > 0) {
+            lettresDisplay.textContent = numberToFrench(ordonance.toFixed(2));
+        } else {
+            lettresDisplay.textContent = "Veuillez saisir un montant...";
+        }
+    });
+</script>
+
+</body>
+</html>
